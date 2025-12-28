@@ -1,20 +1,41 @@
 package org.eatbun.paragliderplus.item.custom;
 
 import net.minecraft.block.Blocks;
+import net.minecraft.client.render.item.BuiltinModelItemRenderer;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.Hand;
 import net.minecraft.world.World;
+import org.eatbun.paragliderplus.item.client.AnimatedItemRender;
+import software.bernie.geckolib.animatable.GeoItem;
+import software.bernie.geckolib.animatable.client.RenderProvider;
+import software.bernie.geckolib.core.animatable.GeoAnimatable;
+import software.bernie.geckolib.core.animatable.instance.AnimatableInstanceCache;
+import software.bernie.geckolib.core.animatable.instance.SingletonAnimatableInstanceCache;
+import software.bernie.geckolib.core.animation.*;
+import software.bernie.geckolib.core.object.PlayState;
+import software.bernie.geckolib.util.RenderUtils;
 
+import java.util.function.Consumer;
+import java.util.function.Supplier;
 
-public class ParagliderDefaultItem extends Item {
+//
+// ГЛАВНЫЙ ФАЙЛ ОБЫЧНОГО (ДЫРЯВОГО) ПАРАГЛАЙДЕРА + АНИМАЦИЯ
+//
+
+public class ParagliderDefaultItem extends Item implements GeoItem {
 
     public ParagliderDefaultItem(Settings settings) {
         super(settings);
     }
 
+    private AnimatableInstanceCache cashe = new SingletonAnimatableInstanceCache(this);
+    private final Supplier<Object> renderProvider = GeoItem.makeRenderer(this);
+
+
+    // Логика планирования
     @Override
     public void inventoryTick(ItemStack stack, World world, Entity entity, int slot, boolean selected) {
         if (entity instanceof PlayerEntity player) {
@@ -58,15 +79,49 @@ public class ParagliderDefaultItem extends Item {
             }
         }
     }
-/*
+
+
+
+    // GecoLib Animation
+
+
+
     @Override
-    public UseAction getUseAction(ItemStack stack) {
-        return UseAction.SPYGLASS;
+    public void createRenderer(Consumer<Object> consumer) {
+        consumer.accept(new RenderProvider() {
+
+            private final AnimatedItemRender renderer = new AnimatedItemRender();
+
+
+            @Override
+            public BuiltinModelItemRenderer getCustomRenderer() {
+                return this.renderer;
+            }
+        });
     }
 
     @Override
-    public int getMaxUseTime(ItemStack stack) {
-        return 72000;
+    public Supplier<Object> getRenderProvider() {
+        return renderProvider;
     }
-*/
+
+    @Override
+    public double getTick(Object itemStack) {
+        return RenderUtils.getCurrentTick();
+    }
+
+    @Override
+    public void registerControllers(AnimatableManager.ControllerRegistrar controllerRegistrar) {
+        controllerRegistrar.add(new AnimationController<GeoAnimatable>(this, "controller", 0, this::perdicate));
+    }
+
+    private PlayState perdicate(AnimationState<GeoAnimatable> tAnimatableAnimationState) {
+        tAnimatableAnimationState.getController().setAnimation(RawAnimation.begin().then("idle", Animation.LoopType.LOOP));
+        return PlayState.CONTINUE;
+    }
+
+    @Override
+    public AnimatableInstanceCache getAnimatableInstanceCache() {
+        return cashe;
+    }
 }
